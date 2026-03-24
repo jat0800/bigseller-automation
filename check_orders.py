@@ -1,5 +1,8 @@
 from playwright.sync_api import sync_playwright
 
+# 🌟 นำเข้าฟังก์ชันจากไฟล์ process_stock_and_line.py ที่เราแยกไว้
+from process_stock_and_line import process_orders_and_stock
+
 def check_new_orders():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False, slow_mo=50)
@@ -8,158 +11,162 @@ def check_new_orders():
 
         print("🚀 กำลังพุ่งไปที่หน้าจัดการออเดอร์...")
         page.goto("https://www.bigseller.com/web/order/index.htm?status=new", wait_until="domcontentloaded", timeout=60000) 
-
-        # รอ 8 วินาทีให้ตารางออเดอร์โผล่มา
         page.wait_for_timeout(8000)
-        print("✅ โหลดหน้าออเดอร์เสร็จเรียบร้อย!")
 
         # ==========================================
-        # 🛡️ ระบบกำจัด Pop-up และประกาศกวนใจ
+        # 🛡️ ระบบกำจัด Pop-up (อัปเกรด V2 ปราบเกรียน Ant Design)
         # ==========================================
         print("🔍 กำลังเช็กว่ามี Pop-up กวนใจไหม...")
-        # วนลูปเช็กสัก 3 รอบ เผื่อมีหน้าต่างซ้อนกัน
-        for _ in range(3):
+        # เพิ่มจำนวนรอบเช็กเป็น 5 รอบ เผื่อมันเด้งซ้อนกันหลายชั้น
+        for _ in range(6):
             try:
-                # ให้เวลาบอทเพ่งมองหาปุ่มแค่ 1 วินาที (จะได้ไม่เสียเวลารอนานถ้าไม่มี Pop-up)
-                if page.locator('button:has-text("ปิด")').first.is_visible(timeout=1000):
-                    page.locator('button:has-text("ปิด")').first.click()
-                    print("💥 จัดการกดปุ่ม 'ปิด'")
-                    page.wait_for_timeout(1000) # รอหน้าต่างหดกลับ
+                # 1. เล็งเป้าหากากบาท (X) มุมขวาบนของกล่องแจ้งเตือน
+                if page.locator('.ant-modal-close').first.is_visible(timeout=1000):
+                    page.locator('.ant-modal-close').first.click(force=True)
+                    print("💥 จัดการกดปิด (X) Pop-up")
+                    page.wait_for_timeout(1000)
                 
+                # 2. หาปุ่มข้อความแบบเดิม
+
+                elif page.locator('button:has-text("ปิด & ไม่เตือน")').first.is_visible(timeout=1000):
+                    page.locator('button:has-text("ปิด & ไม่เตือน")').first.click(force=True)
+                    print("💥 จัดการกดปุ่ม 'ปิด & ไม่เตือน'")
+                    page.wait_for_timeout(1000)
+
+                elif page.locator('button:has-text("ปิด")').first.is_visible(timeout=1000):
+                    page.locator('button:has-text("ปิด")').first.click(force=True)
+                    print("💥 จัดการกดปุ่ม 'ปิด'")
+                    page.wait_for_timeout(1000)
+                    
                 elif page.locator('button:has-text("ข้าม")').first.is_visible(timeout=1000):
-                    page.locator('button:has-text("ข้าม")').first.click()
+                    page.locator('button:has-text("ข้าม")').first.click(force=True)
                     print("💥 จัดการกดปุ่ม 'ข้าม'")
                     page.wait_for_timeout(1000)
                     
                 elif page.locator('button:has-text("ต่อไป")').first.is_visible(timeout=1000):
-                    page.locator('button:has-text("ต่อไป")').first.click()
+                    page.locator('button:has-text("ต่อไป")').first.click(force=True)
                     print("💥 จัดการกดปุ่ม 'ต่อไป'")
                     page.wait_for_timeout(1000)
+                    
                 else:
-                    # ถ้าหาไม่เจอทั้ง 3 ปุ่ม แปลว่าหน้าจอโล่งแล้ว ให้พังลูปออกไปทำงานต่อได้เลย
-                    break 
+                    break # โล่งแล้ว ลุยต่อ!
             except Exception:
                 break
                 
         print("✅ หน้าจอโล่งแล้ว ลุยดึงออเดอร์ต่อ!")
 
         # ==========================================
-        # สเต็ปที่ 1: ติ๊กเลือกออเดอร์ทั้งหมด
+        # สเต็ปที่ 1-4: ดึงใบสรุป
         # ==========================================
-        print("👉 กำลังกดเลือกออเดอร์ทั้งหมด...")
         page.locator('input[name="listAllBox"]').check()
-        page.wait_for_timeout(1000) # รอแป๊บนึงให้ระบบติ๊กถูกจนครบ
-
-        # ==========================================
-        # สเต็ปที่ 2: กดปุ่ม "พิมพ์เป็นชุด"
-        # ==========================================
-        print("👉 กำลังเปิดเมนู พิมพ์เป็นชุด...")
+        page.wait_for_timeout(1000)
         page.locator('button:has-text("พิมพ์เป็นชุด")').first.click()
         page.wait_for_timeout(1000)
-
-        # ==========================================
-        # สเต็ปที่ 3: กดเลือก "พิมพ์รายการสรุป" จาก Dropdown
-        # ==========================================
-        print("👉 กำลังคลิก พิมพ์รายการสรุป...")
-        # ใช้การหาจากข้อความได้เลย
         page.locator('text="พิมพ์รายการสรุป"').last.click(force=True)
         page.wait_for_timeout(1000)
 
-        # ==========================================
-        # สเต็ปที่ 4: กดยืนยัน Pop up + ดักจับแท็บใหม่ที่เด้งขึ้นมา
-        # ==========================================
-        print("👉 กำลังกดยืนยัน และสลับไปหน้าต่างใหม่...")
-        
-        # คำสั่ง expect_page() คือการรอรับแท็บใหม่ที่จะเด้งขึ้นมา
         with context.expect_page() as new_page_info:
             page.locator('button:has-text("ยืนยัน")').last.click()
             
-        # สลับตัวคุมบอทไปที่หน้าต่างใหม่
         summary_page = new_page_info.value
-        summary_page.wait_for_load_state("domcontentloaded")
-        print("🎉 เข้าสู่หน้าใบสรุปสำเร็จแล้ว!")
 
-        # ==========================================
-        # สเต็ปที่ 5: ดูดข้อมูลแบบจัดกลุ่ม (1 SKU มีหลายออเดอร์)
-        # ==========================================
-        print("⏳ รอให้ระบบวาดตารางรายการสินค้า...")
+        # 🛑 2. ทริคสำคัญ: สลับแท็บกลับมาหน้าหลักก่อน เพื่อให้ Pop-up โชว์ตัว
+        page.bring_to_front() 
+        page.wait_for_timeout(1500) # รอแอนิเมชัน Pop-up เด้งขึ้นมาให้ชัดๆ
+        
+        print("👉 กดยกเลิกสถานะ 'พิมพ์แล้ว' ที่หน้าหลัก...")
+        try:
+            # กดปุ่มยกเลิก ตาม Class ที่ฟลุ๊คให้มา
+            page.locator('button.ant-btn-default:has-text("ยกเลิก")').last.click(timeout=3000)
+            print("✅ กดยกเลิกสำเร็จ! รักษาออเดอร์ไว้ได้")
+        except Exception:
+            print("⚠️ ไม่เจอหน้าต่างถามสถานะการพิมพ์ (ข้ามไปสเต็ปต่อไป)")
+
+        # 3. สลับแท็บกลับไปที่ 'ใบสรุป' เพื่อดูดข้อมูลต่อ
+        summary_page.bring_to_front()
+
+        summary_page.wait_for_load_state("domcontentloaded")
         summary_page.wait_for_selector('div[data-productname="product_sku"]', timeout=15000)
         summary_page.wait_for_timeout(2000) 
 
-        print("📥 กำลังดูดข้อมูลสินค้าและรหัสออเดอร์ย่อย...")
-        
+        # ==========================================
+        # สเต็ปที่ 5: ดูดข้อมูลจากหน้าใบสรุป
+        # ==========================================
+        print("📥 กำลังดูดข้อมูลสินค้า...")
         products_data = summary_page.evaluate('''() => {
             let results = [];
-            
-            // หากล่อง "แถว" ของแต่ละสินค้า (BigSeller มักจะแยกเป็นบรรทัดๆ)
-            // เราจะหาจาก class ที่ครอบ SKU และชื่อสินค้าเอาไว้
-            let itemRows = document.querySelectorAll('div.item_info').forEach(infoDiv => {
-                // หากล่องแม่ที่ครอบบรรทัดนี้อยู่ (เพื่อจะได้ดึงข้อมูลอื่นในบรรทัดเดียวกันได้)
-                let parentRow = infoDiv.closest('tr'); // ลองใช้ tr ก่อน
-                if (!parentRow) {
-                     // ถ้าไม่ใช่ tr ลองหา div ที่น่าจะเป็นตัวคลุมบรรทัด
-                     parentRow = infoDiv.parentElement.parentElement; 
-                }
+            document.querySelectorAll('div.item_info').forEach(infoDiv => {
+                let parentRow = infoDiv.closest('tr');
+                if (!parentRow) parentRow = infoDiv.parentElement.parentElement; 
 
-                // ดึงชื่อสินค้า
                 let nameText = infoDiv.innerText.trim();
-
-                // ดึง SKU (หาจากใน parentRow เดียวกัน)
                 let skuEl = parentRow.querySelector('div[data-productname="product_sku"]');
                 let skuText = skuEl ? skuEl.innerText.trim() : "ไม่พบ SKU";
-
-                // ดึงจำนวน (หาจากใน parentRow เดียวกัน)
                 let qtyEl = parentRow.querySelector('div[data-productname="product_sku_quantity"]');
                 let qtyText = qtyEl ? qtyEl.innerText.trim() : "0";
 
-                // ดึงรหัสออเดอร์ทั้งหมดที่เป็นของสินค้านี้
                 let orderEls = parentRow.querySelectorAll('.t_c');
                 let ordersList = [];
                 orderEls.forEach(orderEl => {
                     let orderText = orderEl.innerText.trim();
-                    if(orderText !== "" && orderText !== "...") { // ดักจับเผื่อติดจุดไข่ปลา
-                        ordersList.push(orderText); 
-                    }
+                    if(orderText !== "" && orderText !== "...") ordersList.push(orderText); 
                 });
 
-                results.push({
-                    "sku": skuText,
-                    "name": nameText,
-                    "total_qty": qtyText,
-                    "orders": ordersList
-                });
+                results.push({"sku": skuText, "name": nameText, "total_qty": qtyText, "orders": ordersList});
             });
-            
             return results;
         }''')
+        summary_page.close() # ปิดหน้าใบสรุปไปเลย (เดี๋ยวค่อยปริ้นตอนท้าย)
 
         # ==========================================
-        # สเต็ปที่ 6: โชว์ผลลัพธ์ที่ได้ออกมาดู
+        # 🧠 สเต็ปที่ 6: ส่งต่อให้ไฟล์ process_stock_and_line คิดงานให้
         # ==========================================
-        print(f"\n✅ ดึงข้อมูลสำเร็จ! ได้มาทั้งหมด {len(products_data)} SKU\n")
-        
-        for item in products_data:
-            print(f"📦 SKU: {item['sku']} | จำนวนรวมต้องแพ็ค: {item['total_qty']}")
-            print(f"   📝 ชื่อ: {item['name']}")
-            print(f"   🏷️ รหัสออเดอร์ย่อย: {item['orders']}")
-            print("-" * 60)
+        # ฟังก์ชันนี้จะไปวิ่งตัด Sheets และแจ้ง LINE ให้เอง แล้วส่งลิสต์ออเดอร์กลับมาให้ตัวแปร ready_to_pack
+        ready_to_pack = process_orders_and_stock(products_data)
 
         # ==========================================
-        # 🖨️ สเต็ปที่ 7: สั่งเด้งหน้าต่างปริ้น (A4)
+        # 🎯 สเต็ปที่ 7: กลับมาติ๊กถูกออเดอร์พร้อมส่ง (แบบกวาดสายตาหาในหน้าเว็บ)
         # ==========================================
-        print("🖨️ กำลังสั่งเปิดหน้าต่างปริ้น...")
-        print("👉 บอทจะหยุดรอตรงนี้นะครับ ฟลุ๊คสามารถกดปุ่ม Print หรือเคาะ Enter เพื่อปริ้นใบ A4 ได้เลย")
-        print("👉 ปริ้นเสร็จแล้ว ค่อยมากด Resume (▶) ให้บอททำงานจนจบครับ")
+        if len(ready_to_pack) > 0:
+            print(f"\n🎯 กลับมาที่ BigSeller: เริ่มสเต็ปติ๊กเลือก {len(ready_to_pack)} ออเดอร์ที่พร้อมส่ง...")
+            
+            # เคลียร์ติ๊กถูกทั้งหมดออกก่อน
+            page.locator('input[name="listAllBox"]').uncheck()
+            page.wait_for_timeout(1000)
 
-        # ทริคโปรแกรมเมอร์: ใช้ setTimeout เพื่อไม่ให้บอทค้างตอนเปิดหน้าต่าง Print
-        summary_page.evaluate("setTimeout(() => { window.print(); }, 1000);")
+            # 🚀 ทริคใหม่: ไล่หา 'บรรทัด' ที่มีเลขคำสั่งซื้อ แล้วติ๊กถูกในบรรทัดนั้นเลย (เว็บจะได้ไม่รีเฟรช)
+            for order_id in ready_to_pack:
+                clean_id = order_id.split(' ')[0].replace('*', '')
+                print(f"🔍 กำลังหาและติ๊กออเดอร์: {clean_id}")
+                
+                try:
+                    # หา tag <tr> (บรรทัดตาราง) ที่มีข้อความรหัสออเดอร์ แล้วสั่งเช็ค checkbox ในบรรทัดนั้น
+                    row = page.locator(f'tr:has-text("{clean_id}")').first
+                    row.locator('input[type="checkbox"]').first.check()
+                    
+                    page.wait_for_timeout(500) # พักหายใจนิดนึงให้เว็บตอบสนอง
+                except Exception as e:
+                    print(f"⚠️ อาเร๊ะ! หาออเดอร์ {clean_id} ไม่เจอในหน้านี้")
 
-        # สั่งบอทหยุดรอ ให้คนกดปริ้นกระดาษให้เสร็จก่อน
-        summary_page.pause()
+            # ==========================================
+            # 🛡️ สเต็ปที่ 8: Dry Run เอาเมาส์ชี้ปุ่มยืนยัน
+            # ==========================================
+            print("\n🛡️ Dry Run: ติ๊กครบแล้ว! กำลังเอาเมาส์ไปชี้ปุ่มยืนยัน...")
+            
+            # หาปุ่มที่มีข้อความ ยืนยัน (จากรูปที่ 4)
+            page.locator('button.ant-btn-primary:has-text("ยืนยัน")').last.hover()
+            
+            # ==========================================
+            # 🖨️ สเต็ปสุดท้าย: แจ้งปริ้น
+            # ==========================================
+            print("💡 บอทเลือกออเดอร์พร้อมส่งสะสมไว้ให้ครบแล้วครับ!")
+            print("👉 ฟลุ๊คสามารถกด พิมพ์รายการสรุป (เพื่อเอาแค่ของพร้อมส่ง) หรือ กดยืนยัน ได้เลย")
+            page.pause()
+            
+        else:
+            print("\n🏁 ไม่มีออเดอร์ที่พร้อมส่งในรอบนี้")
 
-        # ปิดเบราว์เซอร์เมื่อทำงานเสร็จทุกอย่าง
-        print("🏁 จบการทำงานของบอทดึงออเดอร์!")
-        browser.close()
+        # browser.close()
 
 if __name__ == "__main__":
     check_new_orders()
